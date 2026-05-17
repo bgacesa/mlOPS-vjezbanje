@@ -49,11 +49,22 @@ destroy-infra:
 
 get-kubeconfig:
 	@IP=$$(cd $(INFRA_DIR) && terraform output -raw instance_public_ip); \
-	echo "Preuzimam kubeconfig sa $$IP..."; \
+	INSTANCE_ID=$$(cd $(INFRA_DIR) && terraform output -raw instance_id); \
+	echo "Preuzimam kubeconfig sa $$INSTANCE_ID (SSM — bez SSH keya)..."; \
+	COMMAND_ID=$$(aws ssm send-command \
+	    --instance-ids "$$INSTANCE_ID" \
+	    --document-name "AWS-RunShellScript" \
+	    --parameters 'commands=["sudo cat /etc/kubernetes/admin.conf"]' \
+	    --region $(AWS_REGION) \
+	    --query 'Command.CommandId' --output text); \
+	echo "  SSM command ID: $$COMMAND_ID"; \
+	sleep 5; \
 	mkdir -p ~/.kube; \
-	ssh -o StrictHostKeyChecking=no -o ConnectTimeout=10 \
-	    -i ~/.ssh/$(KEY_NAME).pem ubuntu@$$IP \
-	    'sudo cat /etc/kubernetes/admin.conf' \
+	aws ssm get-command-invocation \
+	    --command-id "$$COMMAND_ID" \
+	    --instance-id "$$INSTANCE_ID" \
+	    --region $(AWS_REGION) \
+	    --query 'StandardOutputContent' --output text \
 	  | sed "s|server: https://.*:6443|server: https://$$IP:6443|" \
 	  > $(KUBECONFIG); \
 	chmod 600 $(KUBECONFIG); \
