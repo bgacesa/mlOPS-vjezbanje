@@ -1,0 +1,42 @@
+global:
+  domain: ""
+
+server:
+  service:
+    type: NodePort
+    nodePortHttp: 30080
+    nodePortHttps: 30443
+  # Insecure mode — bez TLS na serveru (TLS terminacija je na load balanceru)
+  extraArgs:
+    - --insecure
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+configs:
+  params:
+    server.insecure: true
+  repositories:
+    kubeflow-manifests:
+      url: https://github.com/kubeflow/manifests
+      name: kubeflow-manifests
+      type: git
+
+repoServer:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+applicationSet:
+  enabled: true
+
+notifications:
+  enabled: false

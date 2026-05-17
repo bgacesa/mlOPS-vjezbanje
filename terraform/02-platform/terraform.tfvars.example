@@ -1,0 +1,19 @@
+aws_region   = "eu-central-1"
+project_name = "mlops-vjezba"
+environment  = "dev"
+
+# Putanja do kubeconfig preuzetog u fazi 01-infra (make get-kubeconfig)
+kubeconfig_path = "~/.kube/mlops-config"
+
+# MinIO kredencijali
+minio_root_user     = "minio-admin"
+minio_root_password = "changeme-strong-password"
+
+# Grafana
+grafana_admin_password = "mlops-grafana-2024"
+
+# Kubeflow verzija
+kubeflow_version = "v1.8.1"
+
+# ArgoCD Helm chart verzija
+argocd_version = "6.7.14"

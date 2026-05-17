@@ -1,0 +1,22 @@
+aws_region         = "eu-central-1"
+project_name       = "mlops-vjezba"
+environment        = "dev"
+
+# Network
+vpc_cidr           = "10.0.0.0/16"
+public_subnet_cidr = "10.0.1.0/24"
+
+# Compute — min t3.2xlarge za Kubeflow + ostale komponente
+instance_type       = "t3.2xlarge"
+root_volume_size_gb = 50
+data_volume_size_gb = 100
+
+# Zamijeniti sa stvarnim imenom key-para iz AWS
+key_name = "mlops-key"
+
+# Ograničiti na vašu IP adresu u produkciji!
+allowed_cidr_blocks = ["0.0.0.0/0"]
+
+# Kubernetes
+kubernetes_version = "1.29"
+pod_cidr           = "10.244.0.0/16"

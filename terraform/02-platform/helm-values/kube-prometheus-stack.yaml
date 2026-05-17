@@ -1,0 +1,65 @@
+grafana:
+  enabled: true
+  # adminPassword se postavlja iz Terraform varijable
+  service:
+    type: NodePort
+    nodePort: 30300
+  persistence:
+    enabled: true
+    storageClassName: local-path
+    size: 5Gi
+  additionalDataSources:
+    - name: MLflow
+      type: prometheus
+      url: http://mlflow.mlflow.svc.cluster.local:5000/metrics
+
+prometheus:
+  prometheusSpec:
+    retention: 15d
+    scrapeInterval: 30s
+    storageSpec:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 20Gi
+    additionalScrapeConfigs:
+      - job_name: 'mlflow'
+        static_configs:
+          - targets: ['mlflow.mlflow.svc.cluster.local:5000']
+      - job_name: 'minio'
+        static_configs:
+          - targets: ['minio.minio.svc.cluster.local:9000']
+      - job_name: 'argo-workflows'
+        static_configs:
+          - targets: ['argo-workflows-workflow-controller-metrics.argo.svc.cluster.local:9090']
+
+alertmanager:
+  enabled: true
+  alertmanagerSpec:
+    storage:
+      volumeClaimTemplate:
+        spec:
+          storageClassName: local-path
+          accessModes: ["ReadWriteOnce"]
+          resources:
+            requests:
+              storage: 2Gi
+
+nodeExporter:
+  enabled: true
+
+kubeStateMetrics:
+  enabled: true
+
+# Smanjeni resursi za single-node
+prometheus-node-exporter:
+  resources:
+    requests:
+      cpu: 50m
+      memory: 32Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi

@@ -1,0 +1,52 @@
+server:
+  enabled: true
+  serviceType: NodePort
+  servicePort: 2746
+  serviceNodePort: 30274
+  # Server auth mode za development (bez auth-a)
+  authModes:
+    - server
+  extraArgs:
+    - --auth-mode=server
+
+controller:
+  metricsConfig:
+    enabled: true
+    path: /metrics
+    port: 9090
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+workflow:
+  serviceAccount:
+    create: true
+    name: argo-workflow-sa
+  rbac:
+    create: true
+
+executor:
+  resources:
+    requests:
+      cpu: 100m
+      memory: 64Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# Artifact repository — MinIO
+artifactRepository:
+  s3:
+    bucket: pipeline-artifacts
+    endpoint: minio.minio.svc.cluster.local:9000
+    insecure: true
+    accessKeySecret:
+      name: minio-argo-secret
+      key: accessKey
+    secretKeySecret:
+      name: minio-argo-secret
+      key: secretKey

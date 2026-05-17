@@ -1,0 +1,44 @@
+# MinIO standalone mode za development
+mode: standalone
+replicas: 1
+
+persistence:
+  enabled: true
+  storageClass: local-path
+  size: 50Gi
+
+service:
+  type: NodePort
+  nodePort: 30900
+
+consoleService:
+  type: NodePort
+  nodePort: 30901
+
+resources:
+  requests:
+    memory: 512Mi
+    cpu: 250m
+  limits:
+    memory: 2Gi
+    cpu: 1000m
+
+# Kreiranje inicijalnih bucket-a pri deploymentu
+buckets:
+  - name: mlflow-artifacts
+    policy: none
+    purge: false
+  - name: feast-registry
+    policy: none
+    purge: false
+  - name: model-artifacts
+    policy: none
+    purge: false
+  - name: pipeline-artifacts
+    policy: none
+    purge: false
+
+metrics:
+  serviceMonitor:
+    enabled: true
+    namespace: monitoring

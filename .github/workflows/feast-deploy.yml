@@ -1,0 +1,78 @@
+name: "03 · Feast Feature Store Deploy"
+# Feast se deployava kao GitHub Actions job jer nema zreli Helm chart.
+# feast apply čita feature_store.yaml i registrira feature views u MinIO/registry.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "feast/**"
+  workflow_dispatch:
+    inputs:
+      feast_action:
+        description: "Feast akcija"
+        required: true
+        default: "apply"
+        type: choice
+        options: [apply, teardown, materialize]
+
+permissions:
+  contents: read
+  id-token: write
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION || 'eu-central-1' }}
+  FEAST_DIR: feast
+
+jobs:
+  feast-deploy:
+    name: "Feast ${{ inputs.feast_action || 'apply' }}"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS Credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instaliraj Feast
+        run: |
+          pip install feast[aws,redis]==0.40.0 boto3
+
+      - name: Postavi Feast env varijable
+        run: |
+          PUBLIC_IP=${{ vars.K8S_MASTER_IP }}
+          echo "FEAST_REGISTRY_PATH=s3://feast-registry/registry.db" >> $GITHUB_ENV
+          echo "FEAST_ONLINE_STORE_TYPE=redis" >> $GITHUB_ENV
+          # MinIO kao S3-compatible store
+          echo "AWS_ENDPOINT_URL=http://$PUBLIC_IP:30900" >> $GITHUB_ENV
+          echo "AWS_ACCESS_KEY_ID=${{ secrets.MINIO_ROOT_USER }}" >> $GITHUB_ENV
+          echo "AWS_SECRET_ACCESS_KEY=${{ secrets.MINIO_ROOT_PASSWORD }}" >> $GITHUB_ENV
+
+      - name: Feast Apply (registracija feature definicija)
+        if: inputs.feast_action == 'apply' || github.event_name == 'push'
+        working-directory: ${{ env.FEAST_DIR }}
+        run: feast apply
+
+      - name: Feast Materialize (offline → online store)
+        if: inputs.feast_action == 'materialize'
+        working-directory: ${{ env.FEAST_DIR }}
+        run: |
+          START=$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%S)
+          END=$(date -u +%Y-%m-%dT%H:%M:%S)
+          feast materialize "$START" "$END"
+
+      - name: Feast Teardown
+        if: inputs.feast_action == 'teardown'
+        working-directory: ${{ env.FEAST_DIR }}
+        run: feast teardown
