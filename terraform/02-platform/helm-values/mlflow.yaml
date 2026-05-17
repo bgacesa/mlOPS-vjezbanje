@@ -1,28 +1,20 @@
 backendStore:
-  # SQLite za development — zamijeni sa PostgreSQL za produkciju
   sqlite:
     enabled: true
     path: /mlflow/mlruns/mlflow.db
 
-# Artifact store — MinIO (S3-compatible)
 artifactRoot:
   s3:
     enabled: true
     bucket: mlflow-artifacts
     path: ""
+    # awsAccessKeyId i awsSecretAccessKey se injektuju iz Terraform set_sensitive
+    s3EndpointUrl: "http://minio.minio.svc.cluster.local:9000"
+    ignoreeTLS: "true"
 
-# Env varijable za MinIO konekciju
-# PAŽNJA: aws_access_key_id i aws_secret_access_key
-# se injektuju iz Terraform varijabli (set_sensitive)
+# extraEnvVars mora biti mapa (dict), ne lista — community-charts/mlflow specifičnost
 extraEnvVars:
-  - name: AWS_ACCESS_KEY_ID
-    value: "SET_FROM_TERRAFORM"
-  - name: AWS_SECRET_ACCESS_KEY
-    value: "SET_FROM_TERRAFORM"
-  - name: MLFLOW_S3_ENDPOINT_URL
-    value: "http://minio.minio.svc.cluster.local:9000"
-  - name: MLFLOW_S3_IGNORE_TLS
-    value: "true"
+  MLFLOW_S3_IGNORE_TLS: "true"
 
 service:
   type: NodePort

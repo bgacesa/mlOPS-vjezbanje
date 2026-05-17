@@ -35,12 +35,11 @@ locals {
     "monitoring",
     "mlflow",
     "argo",
-    "kserve",
     "minio",
-    "kubeflow",
     "argocd",
     "cert-manager",
     "feast",
+    # kubeflow i kserve namespace kreira Kubeflow ArgoCD Application
   ]
 }
 
@@ -138,13 +137,14 @@ resource "helm_release" "mlflow" {
 
   values = [file("${path.module}/helm-values/mlflow.yaml")]
 
+  # community-charts/mlflow koristi artifactRoot.s3.* za S3 kredencijale
   set_sensitive {
-    name  = "extraEnvVars[0].value"
+    name  = "artifactRoot.s3.awsAccessKeyId"
     value = var.minio_root_user
   }
 
   set_sensitive {
-    name  = "extraEnvVars[1].value"
+    name  = "artifactRoot.s3.awsSecretAccessKey"
     value = var.minio_root_password
   }
 
@@ -188,37 +188,9 @@ resource "helm_release" "argocd" {
 }
 
 # =============================================================================
-# KServe — Model serving (zahtijeva cert-manager)
+# KServe — deployovan od strane Kubeflow ArgoCD Application (kubeflow namespace).
+# Poseban Helm release nije potreban — Kubeflow manifesti već uključuju KServe.
 # =============================================================================
-resource "helm_release" "kserve_crd" {
-  name       = "kserve-crd"
-  repository = "https://kserve.github.io/helm-charts"
-  chart      = "kserve-crd"
-  version    = "v0.13.0"
-  namespace  = "kserve"
-
-  depends_on = [
-    kubernetes_namespace.platform,
-    helm_release.cert_manager,
-  ]
-  timeout = 300
-}
-
-resource "helm_release" "kserve" {
-  name       = "kserve"
-  repository = "https://kserve.github.io/helm-charts"
-  chart      = "kserve"
-  version    = "v0.13.0"
-  namespace  = "kserve"
-
-  values = [file("${path.module}/helm-values/kserve.yaml")]
-
-  depends_on = [
-    helm_release.kserve_crd,
-    helm_release.cert_manager,
-  ]
-  timeout = 600
-}
 
 # =============================================================================
 # Kubeflow — Kubeflow nema oficijalni Helm chart.
