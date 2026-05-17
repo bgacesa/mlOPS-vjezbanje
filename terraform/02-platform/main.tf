@@ -224,48 +224,58 @@ resource "helm_release" "kserve" {
 # Kubeflow — Kubeflow nema oficijalni Helm chart.
 # Deployamo ga kroz ArgoCD Application koji koristi kustomize manifeste
 # iz oficijalne kubeflow/manifests GitHub repo.
+#
+# Koristimo null_resource + local-exec umjesto kubernetes_manifest jer
+# kubernetes_manifest validira CRD tokom plan faze — a ArgoCD CRD-ovi
+# ne postoje dok ArgoCD nije instaliran (chicken-and-egg problem).
 # =============================================================================
-resource "kubernetes_manifest" "kubeflow_argocd_app" {
-  manifest = {
-    apiVersion = "argoproj.io/v1alpha1"
-    kind       = "Application"
-    metadata = {
-      name      = "kubeflow"
-      namespace = "argocd"
-      finalizers = ["resources-finalizer.argocd.argoproj.io"]
-    }
-    spec = {
-      project = "default"
-      source = {
-        repoURL        = "https://github.com/kubeflow/manifests"
-        targetRevision = var.kubeflow_version
-        path           = "example"
-      }
-      destination = {
-        server    = "https://kubernetes.default.svc"
-        namespace = "kubeflow"
-      }
-      syncPolicy = {
-        automated = {
-          prune    = false
-          selfHeal = true
-        }
-        syncOptions = [
-          "CreateNamespace=true",
-          "ServerSideApply=true",
-        ]
-        retry = {
-          limit = 5
-          backoff = {
-            duration    = "5s"
-            factor      = 2
-            maxDuration = "3m"
-          }
-        }
-      }
-    }
+resource "null_resource" "kubeflow_argocd_app" {
+  triggers = {
+    kubeflow_version = var.kubeflow_version
+    argocd_release   = helm_release.argocd.metadata[0].revision
   }
 
-  # ArgoCD mora biti potpuno up i CRD-ovi registrirani
+  provisioner "local-exec" {
+    command = <<-EOT
+      echo "Čekam da ArgoCD CRD-ovi budu registrirani..."
+      until kubectl --kubeconfig=${var.kubeconfig_path} \
+        get crd applications.argoproj.io &>/dev/null; do
+        sleep 5
+      done
+      echo "ArgoCD CRD-ovi su spremni, kreiram Kubeflow Application..."
+      kubectl --kubeconfig=${var.kubeconfig_path} apply -f - <<EOF
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: kubeflow
+  namespace: argocd
+  finalizers:
+    - resources-finalizer.argocd.argoproj.io
+spec:
+  project: default
+  source:
+    repoURL: https://github.com/kubeflow/manifests
+    targetRevision: ${var.kubeflow_version}
+    path: example
+  destination:
+    server: https://kubernetes.default.svc
+    namespace: kubeflow
+  syncPolicy:
+    automated:
+      prune: false
+      selfHeal: true
+    syncOptions:
+      - CreateNamespace=true
+      - ServerSideApply=true
+    retry:
+      limit: 5
+      backoff:
+        duration: 5s
+        factor: 2
+        maxDuration: 3m
+EOF
+    EOT
+  }
+
   depends_on = [helm_release.argocd]
 }
